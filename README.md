@@ -4,7 +4,7 @@ Coopanion 气泡朗读：BreezeBlue、MiniMax 云端，或本机 breeze-tts-2 �
 
 包名为 `cortico-world-breezeblue-tts`，默认关闭。适用 Windows；需要 Coopanion 支持 World API 6。
 
-作者与维护者：**星云** · [npm 安装包](https://www.npmjs.com/package/cortico-world-breezeblue-tts) · [反馈问题](https://github.com/chenhongyuan1/cortico-world-breezeblue-tts/issues) · [MIT 许可](LICENSE)
+作者：**星云** · 上游 [chenhongyuan1/cortico-world-breezeblue-tts](https://github.com/chenhongyuan1/cortico-world-breezeblue-tts) · 本仓库 [623Aki/cortico-world-breezeblue-tts](https://github.com/623Aki/cortico-world-breezeblue-tts) 在其基础上加入了本机 breeze-tts 服务与折叠式设置面板 · [反馈问题](https://github.com/623Aki/cortico-world-breezeblue-tts/issues) · [MIT 许可](LICENSE)
 
 ## 与 Coopanion 的关系
 
@@ -28,6 +28,17 @@ Coopanion 气泡朗读：BreezeBlue、MiniMax 云端，或本机 breeze-tts-2 �
 
 独立 World ID 为 `breezeblue-tts`，配置段为 `worlds.breezeblue-tts`。
 若同时装有原 `cortico-world-pet-voice`，请只启用其中一个朗读扩展，避免同一句被朗读两次。
+
+### 从本地源码装（改代码时用）
+
+改代码时不必每次打包：让扩展目录直接指向本地 clone，改完重启 Coopanion 就生效。
+
+1. `git clone https://github.com/623Aki/cortico-world-breezeblue-tts.git`（也可以就是你自己的工作副本目录）；
+2. 编辑 `<部署目录>/data/extensions/package.json`，在 `dependencies` 里加一行 `"cortico-world-breezeblue-tts": "link:<克隆目录的绝对路径>"`；
+3. 在 `<部署目录>/data/extensions` 里装一次依赖（`pnpm install`）。`node_modules/cortico-world-breezeblue-tts` 会变成指向源码的链接（Windows 上是 junction，需要开发者模式；没有的话用管理员 CMD：`mklink /J node_modules\cortico-world-breezeblue-tts <克隆目录>`）；
+4. 重启 Coopanion。
+
+这一步改的是**部署目录**里的文件，不在本仓库的版本控制里。重装 Coopanion、或者把源码目录挪了位置之后要重做，否则扩展会显示「已安装但没有加载」。修改面板的 JS/CSS 后必须**重启应用**（只重启 World 不够：面板产物地址带包版本号，浏览器会按 `immutable` 用缓存）。
 
 ## BreezeBlue 配置
 

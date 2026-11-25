@@ -46,11 +46,11 @@
   "author": "星云",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/chenhongyuan1/cortico-world-breezeblue-tts.git"
+    "url": "git+https://github.com/623Aki/cortico-world-breezeblue-tts.git"
   },
-  "homepage": "https://github.com/chenhongyuan1/cortico-world-breezeblue-tts#readme",
+  "homepage": "https://github.com/623Aki/cortico-world-breezeblue-tts#readme",
   "bugs": {
-    "url": "https://github.com/chenhongyuan1/cortico-world-breezeblue-tts/issues"
+    "url": "https://github.com/623Aki/cortico-world-breezeblue-tts/issues"
   },
   "engines": {
     "node": ">=20.19.0"
