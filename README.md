@@ -4,7 +4,7 @@ Coopanion 气泡朗读：BreezeBlue、MiniMax 云端，或本机 breeze-tts-2 �
 
 包名为 `cortico-world-breezeblue-tts`，默认关闭。适用 Windows；需要 Coopanion 支持 World API 6。
 
-作者：**星云** · 上游 [chenhongyuan1/cortico-world-breezeblue-tts](https://github.com/chenhongyuan1/cortico-world-breezeblue-tts) · 本仓库 [623Aki/cortico-world-breezeblue-tts](https://github.com/623Aki/cortico-world-breezeblue-tts) 在其基础上加入了本机 breeze-tts 服务与折叠式设置面板 · [反馈问题](https://github.com/623Aki/cortico-world-breezeblue-tts/issues) · [MIT 许可](LICENSE)
+维护者：**623Aki**（[本仓库](https://github.com/623Aki/cortico-world-breezeblue-tts)）· 上游作者：**星云**（[chenhongyuan1/cortico-world-breezeblue-tts](https://github.com/chenhongyuan1/cortico-world-breezeblue-tts)）· 本仓库在原版基础上加入本机 breeze-tts 服务、流式播放与折叠式设置面板 · [问题反馈](https://github.com/623Aki/cortico-world-breezeblue-tts/issues) · [MIT 许可](LICENSE)
 
 ## 与 Coopanion 的关系
 
@@ -19,7 +19,7 @@ Coopanion 气泡朗读：BreezeBlue、MiniMax 云端，或本机 breeze-tts-2 �
 
 请先安装并配置 Coopanion，再通过它的扩展页安装本包。Coopanion 本身支持多个系统；本扩展当前的音频播放和系统语音回退依赖 Windows。扩展按 World API 6 接入，已在 Coopanion 0.2.11 验证。
 
-本项目由星云独立维护，保留上游代码来源与许可说明。Coopanion 官方项目以其自身许可证为准，本扩展采用 MIT 许可。
+上游由星云独立维护；本仓库（623Aki）负责本机服务与设置面板这部分改动，保留上游代码来源与许可说明。Coopanion 官方项目以其自身许可证为准，本扩展采用 MIT 许可。
 
 ## 安装
 
@@ -202,7 +202,7 @@ BreezeBlue 使用同步文字转语音接口，固定请求 WAV，由 Windows Me
 克隆开源仓库后运行离线测试，开发环境需安装 Node.js 20.19 或更高版本：
 
 ```powershell
-git clone https://github.com/chenhongyuan1/cortico-world-breezeblue-tts.git
+git clone https://github.com/623Aki/cortico-world-breezeblue-tts.git
 cd cortico-world-breezeblue-tts
 npm test
 ```
@@ -246,6 +246,6 @@ $env:BBT_JSDOM = "<任意 node_modules>/jsdom"; node scripts/test-panel.mjs
 
 开启云端朗读后，朗读文字会发送至所选语音服务；系统语音模式不发送云端请求；选本机服务时文字只在本机回环上传输，不经过任何外部端点。没有开发者遥测端点。详见 [PRIVACY.md](PRIVACY.md)。
 
-本派生版作者与维护者：**星云**。MIT 许可，派生自杠精大队委的 `cortico-world-pet-voice@0.2.1`；保留原作者署名，来源及修改说明见 [NOTICE.md](NOTICE.md) 和 [LICENSE](LICENSE)。本包使用新建 SVG 图标，不分发原图标或任何音频样本。
+上游作者：**星云**；本仓库由 **623Aki** 维护，在原版基础上加入本机 breeze-tts 服务、PCM 流式播放与折叠式设置面板。MIT 许可，派生自杠精大队委的 `cortico-world-pet-voice@0.2.1`；保留原作者署名，来源及修改说明见 [NOTICE.md](NOTICE.md) 和 [LICENSE](LICENSE)。本包使用新建 SVG 图标，不分发原图标或任何音频样本。
 
 接口参考：[BreezeBlue TTS](https://docs.breezeblue.ai/api-reference/text-to-speech/convert-text-to-speech)、[音色列表](https://docs.breezeblue.ai/api-reference/voices/list-voices)、[输出格式](https://docs.breezeblue.ai/concepts/output-format)。

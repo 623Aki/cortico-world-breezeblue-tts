@@ -43,7 +43,10 @@
     "webUiClient": "src/webui/client.js",
     "webUiStyle": "src/webui/style.css"
   },
-  "author": "星云",
+  "author": "623Aki (fork maintainer)",
+  "contributors": [
+    "星云 (upstream author, BreezeBlue adaptation)"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/623Aki/cortico-world-breezeblue-tts.git"
