@@ -496,20 +496,25 @@ try {
 
   const ui = instance.webUi('zh');
   const uiOk = ui && typeof ui === 'object'
-    && Array.isArray(ui.config) && ui.config.length > 0
+    && Array.isArray(ui.panels) && ui.panels.length > 0
+    && typeof ui.invoke === 'function'
     && Array.isArray(ui.lamps) && ui.lamps.length > 0;
-  check(uiOk, 'webUi() 给出配置组与状态灯（控制台页面据此生成）',
-    uiOk ? `config=${ui.config.length} 组, lamps=${ui.lamps.length}` : JSON.stringify(Object.keys(ui ?? {})));
+  check(uiOk, 'webUi() 给出面板、数据面（invoke）与状态灯',
+    uiOk ? `panels=${ui.panels.length}, lamps=${ui.lamps.length}` : JSON.stringify(Object.keys(ui ?? {})));
 
-  // 这条是回归断言：曾经声明了 panels 却没带构建产物，导致 World 页报
-  // 「缺少面板构建产物」，而那一页正是唯一能激活本 World 的地方 —— 连激活都点不动。
+  // 设置只有面板一个入口。交 config 的话框架会在「配置」页签里再画一份按 schema 生成的
+  // 表单：同一个字段两个入口，改一边另一边不动——就是「新配置和老配置都在」。
+  check(ui.config === undefined || ui.config.length === 0,
+    '不交 config（否则会多出一个自动生成的「配置」页签）',
+    ui.config ? `${ui.config.length} 组` : '(未交)');
+
+  // 反过来这条也要成立：声明了 panels 就必须带浏览器产物，否则 World 页报
+  // 「缺少面板构建产物」，而那一页正是唯一能激活本 World 的地方——连激活都点不动。
   // 框架里 webui-pages/loader.ts 的 resolvePanel() 只在声明了面板时才会去要产物。
-  check(ui.panels === undefined || ui.panels.length === 0,
-    '不声明任何 panels（否则框架会要求构建产物，World 页会加载失败）',
-    ui.panels ? JSON.stringify(ui.panels.map((p) => p.id)) : '(未声明)');
-  check(pkg.cortico?.webUiClient === undefined,
-    'manifest 里不声明 webUiClient（没有产物就别声明，声明了但文件不在会被记 missing）',
-    String(pkg.cortico?.webUiClient));
+  const clientFile = pkg.cortico?.webUiClient;
+  check(typeof clientFile === 'string' && existsSync(new URL(`../${clientFile}`, import.meta.url)),
+    'manifest 里的 webUiClient 指向真实存在的面板产物',
+    String(clientFile));
 
   // 诊断能力都在 scripts/ 下（selftest / minimax-probe / list-voices），不依赖界面面板，
   // 所以 World 页没有任何需要构建的产物。

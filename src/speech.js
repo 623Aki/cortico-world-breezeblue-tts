@@ -1,5 +1,6 @@
 /**
- * 合成引擎路由：所选云端（BreezeBlue / MiniMax）优先，失败回退系统自带语音。
+ * 合成引擎路由：所选引擎（BreezeBlue / MiniMax 云端，或本机 breeze-tts-2 服务）优先，
+ * 失败回退系统自带语音。
  *
  * 需求对应：
  *   - key 没填 → 直接用系统语音，并且**不去发请求**（不必每句都白等一次超时）；
@@ -12,6 +13,7 @@
  */
 import { synthesizeMiniMax, keyStatus } from './cloud.js';
 import { synthesizeBreeze, breezeKeyStatus, BREEZE_BASE_URL, BREEZE_DEFAULT_MODEL } from './breeze.js';
+import { synthesizeLocal, synthesizeLocalStream, localStatus, localBaseUrl, probeLocal } from './local.js';
 import { playWav, probePlayer } from './player.js';
 import { speakSapi, listVoices } from './tts.js';
 import { clampInt } from './config.js';
@@ -23,6 +25,8 @@ export const BREAK_AFTER = 3;
 export const BREAK_COOLDOWN_MS = 120_000;
 /** 云端返回的音频格式；本地播放器按 WAV 播，所以固定要 wav。 */
 const CLOUD_FORMAT = 'wav';
+/** 本机服务固定 24 kHz 单声道 16 位（docs/server.md）；流式播放要提前把设备开成这个格式。 */
+const LOCAL_RATE = 24000;
 
 /**
  * 把活配置整理成引擎参数。每次朗读都调用，所以改配置立刻生效。
@@ -30,7 +34,7 @@ const CLOUD_FORMAT = 'wav';
  */
 export function engineConfig(cfg = {}) {
   return {
-    cloudProvider: cfg.cloudProvider === 'minimax' ? 'minimax' : 'breeze',
+    cloudProvider: ['minimax', 'local'].includes(cfg.cloudProvider) ? cfg.cloudProvider : 'breeze',
     breezeEnabled: cfg.breezeEnabled !== false,
     breezeApiKey: cfg.breezeApiKey,
     breezeApiKeyEnv: cfg.breezeApiKeyEnv,
@@ -43,6 +47,14 @@ export function engineConfig(cfg = {}) {
     breezeGuidanceScale: cfg.breezeGuidanceScale,
     breezeSpeakerBoost: cfg.breezeSpeakerBoost,
     breezeTimeoutMs: clampInt(cfg.breezeTimeoutMs, 2000, 120000, 15000),
+    // 本机 breeze-tts-2 服务：不需要密钥，地址留空走默认端口
+    localEnabled: cfg.localEnabled !== false,
+    localBaseUrl: cfg.localBaseUrl,
+    localVoice: cfg.localVoice,
+    localInstruction: cfg.localInstruction,
+    localCfgScale: cfg.localCfgScale,
+    localSeed: cfg.localSeed,
+    localTimeoutMs: clampInt(cfg.localTimeoutMs, 3000, 300000, 60000),
     fallback: cfg.fallback === 'sapi' ? 'sapi' : 'auto',
     minimaxEnabled: cfg.minimaxEnabled === true,
     minimaxEndpoint: cfg.minimaxEndpoint === 'io' ? 'io' : 'cn',
@@ -71,18 +83,24 @@ export function engineConfig(cfg = {}) {
 /**
  * 造一个朗读函数：speak(text) → 结果。
  *
- * engine 字段为 'breeze' / 'minimax' / 'sapi'，便于面板与日志显示；
- * fellBack 为真表示云端没成、改用了系统语音，cloudError 里是原因（已脱敏）。
+ * engine 字段为 'breeze' / 'minimax' / 'local' / 'sapi'，便于面板与日志显示；
+ * fellBack 为真表示所选引擎没成、改用了系统语音，cloudError 里是原因（已脱敏）。
+ * requiresVoice 只对需要显式音色 ID 的引擎为真；本机服务留空就用描述设计音色。
  */
 function cloudFor(cfg, opts) {
   if (cfg.cloudProvider === 'minimax') return {
     id: 'minimax', label: 'MiniMax', enabled: cfg.minimaxEnabled,
-    keys: keyStatus(cfg, opts), synthesize: synthesizeMiniMax,
+    keys: keyStatus(cfg, opts), synthesize: synthesizeMiniMax, requiresVoice: false,
     model: cfg.minimaxModel, voice: cfg.minimaxVoice, endpoint: cfg.minimaxEndpoint,
+  };
+  if (cfg.cloudProvider === 'local') return {
+    id: 'local', label: '本地服务', enabled: cfg.localEnabled,
+    keys: localStatus(cfg), synthesize: synthesizeLocal, requiresVoice: false,
+    model: 'breeze-tts-2', voice: cfg.localVoice, endpoint: localBaseUrl(cfg),
   };
   return {
     id: 'breeze', label: 'BreezeBlue', enabled: cfg.breezeEnabled,
-    keys: breezeKeyStatus(cfg, opts), synthesize: synthesizeBreeze,
+    keys: breezeKeyStatus(cfg, opts), synthesize: synthesizeBreeze, requiresVoice: true,
     model: cfg.breezeModel, voice: cfg.breezeVoice, endpoint: BREEZE_BASE_URL,
   };
 }
@@ -90,6 +108,9 @@ function cloudFor(cfg, opts) {
 export function createSpeech({ getConfig, opts = {}, log = () => {}, engines = {} }) {
   const systemSpeak = engines.speakSapi ?? speakSapi;
   const play = engines.playWav ?? playWav;
+  const audioHost = engines.audioHost ?? null;
+  const streamSynthesize = engines.synthesizeLocalStream ?? synthesizeLocalStream;
+  let hostBrokenLogged = false;
   /** 云端熔断状态。 */
   let consecutiveFailures = 0;
   let breakUntil = 0;
@@ -125,7 +146,7 @@ export function createSpeech({ getConfig, opts = {}, log = () => {}, engines = {
       // 云端可用性：没 key 或正在熔断都直接走系统语音，不发请求
       const now = Date.now();
       const keyAvailable = provider.keys.configured;
-      const voiceAvailable = provider.id !== 'breeze' || Boolean(cfg.breezeVoice?.trim());
+      const voiceAvailable = !provider.requiresVoice || Boolean(cfg.breezeVoice?.trim());
       const inBreak = now < breakUntil;
 
       if (!keyAvailable || !voiceAvailable || inBreak) {
@@ -140,15 +161,54 @@ export function createSpeech({ getConfig, opts = {}, log = () => {}, engines = {
           engine: 'sapi',
           fellBack: true,
           fallbackReason: why,
-          cloudError: why === 'no-key' ? `没配置 ${provider.label} API key`
+          cloudError: why === 'no-key' ? `没配置 ${provider.label} 的凭据`
             : (why === 'no-voice' ? '未配置 BreezeBlue 音色 ID' : lastCloudError),
         };
       }
 
-      // 先试云端
-      const cloud = await provider.synthesize(line, cfg, opts);
+      // 先试所选引擎
+      //
+      // 本机服务走流式：服务边生成边发，第一块音频约 0.3 秒就到（整段合成长句要好几秒），
+      // 声音因此能跟着气泡文字出来，而不是等一整句合成完。云端两家还是整段合成再播。
+      let cloud;
+      let played = null;
+      let streamWarn = '';
+      if (provider.id === 'local' && audioHost && !audioHost.broken) {
+        const began = Date.now();
+        const streamed = await audioHost
+          .speakStream(LOCAL_RATE, (feed) => streamSynthesize(line, cfg, { onChunk: feed, opts }))
+          .catch((err) => ({ ok: false, bytes: 0, error: err?.message ?? String(err) }));
+        if (streamed.bytes > 0) {
+          cloud = {
+            ok: true,
+            ms: streamed.firstAudioMs ?? (Date.now() - began),
+            audioMs: streamed.audioMs,
+            firstAudioMs: streamed.firstAudioMs,
+            model: 'breeze-tts-2',
+            voiceId: cfg.localVoice || 'design',
+            usage: { characters: null, audioMs: streamed.audioMs, audioFormat: 'pcm', sampleRate: streamed.sampleRate, streaming: true },
+          };
+          played = { ok: true, ms: streamed.audioMs };
+          if (!streamed.ok) {
+            // 放到一半断了：已经出过声，重念会和前面叠在一起，这一句就这样收尾
+            streamWarn = `本机服务音频流中断（已播 ${Math.round((streamed.audioMs ?? 0) / 100) / 10}s）：${streamed.error ?? '未知原因'}`;
+            log('warn', streamWarn);
+          }
+        } else {
+          cloud = { ok: false, error: streamed.error ?? '本机服务没有返回音频' };
+          if (audioHost.broken && !hostBrokenLogged) {
+            hostBrokenLogged = true;
+            log('warn', `流式播放起不来（${audioHost.status().lastError || '原因不明'}），改用整段播放`);
+          }
+        }
+      } else {
+        cloud = await provider.synthesize(line, cfg, opts);
+        if (cloud.ok) {
+          played = await play(cloud.bytes, cfg).catch((err) => ({ ok: false, error: err?.message ?? String(err) }));
+        }
+      }
+
       if (cloud.ok) {
-        const played = await play(cloud.bytes, cfg).catch((err) => ({ ok: false, error: err?.message ?? String(err) }));
         if (played.ok) {
           consecutiveFailures = 0;
           lastCloudError = '';
@@ -159,14 +219,16 @@ export function createSpeech({ getConfig, opts = {}, log = () => {}, engines = {
             engine: provider.id,
             ms: cloud.ms,
             audioMs: played.ms,
+            firstAudioMs: cloud.firstAudioMs,
             model: cloud.model,
             voice: cloud.voiceId,
             keyFrom: cloud.keyFrom,
             usage: cloud.usage,
             traceId: cloud.traceId,
+            ...(streamWarn ? { partial: true, streamWarning: streamWarn } : {}),
           };
         }
-        // 合成成功但放不出来：算云端失败（别重复播两次），转系统语音
+        // 合成成功但放不出来：算引擎失败（别重复播两次），转系统语音
         lastCloudError = `播放失败：${played.error}`;
         log('warn', `${lastCloudError}；这一句改用系统语音`);
         consecutiveFailures += 1;
@@ -179,7 +241,7 @@ export function createSpeech({ getConfig, opts = {}, log = () => {}, engines = {
       if (consecutiveFailures >= BREAK_AFTER) {
         breakUntil = Date.now() + BREAK_COOLDOWN_MS;
         consecutiveFailures = 0;
-        log('warn', `${provider.label} 连续失败，暂停云端 ${Math.round(BREAK_COOLDOWN_MS / 1000)} 秒，期间只用系统语音`);
+        log('warn', `${provider.label} 连续失败，暂停这个引擎 ${Math.round(BREAK_COOLDOWN_MS / 1000)} 秒，期间只用系统语音`);
       }
 
       // 回退系统语音；回退也失败就只有这一句没声音，不影响后续
@@ -211,7 +273,7 @@ export function createSpeech({ getConfig, opts = {}, log = () => {}, engines = {
         provider: provider.id,
         providerLabel: provider.label,
         cloudConfigured: keys.configured,
-        cloudReady: keys.configured && (provider.id !== 'breeze' || Boolean(cfg.breezeVoice?.trim())),
+        cloudReady: keys.configured && (!provider.requiresVoice || Boolean(cfg.breezeVoice?.trim())),
         keyFrom: keys.from,
         keyCandidates: keys.candidates,
         model: provider.model,
@@ -227,13 +289,16 @@ export function createSpeech({ getConfig, opts = {}, log = () => {}, engines = {
   };
 }
 
-/** 探测两个引擎各能不能用（面板与自检用）。 */
+/** 探测所选引擎能不能用（面板与自检用）。 */
 export async function probeEngines(cfg = {}, opts = {}) {
   const normalized = engineConfig(cfg);
   const provider = cloudFor(normalized, opts);
   const keys = provider.keys;
   const voices = await listVoices().catch((err) => ({ ok: false, voices: [], error: err?.message ?? String(err) }));
   const player = await probePlayer().catch((err) => ({ ok: false, error: err?.message ?? String(err) }));
+  const local = provider.id === 'local'
+    ? await probeLocal(normalized).catch((err) => ({ ok: false, base: localBaseUrl(normalized), error: err?.message ?? String(err) }))
+    : null;
   return {
     cloud: {
       enabled: provider.enabled,
@@ -241,11 +306,13 @@ export async function probeEngines(cfg = {}, opts = {}) {
       label: provider.label,
       model: provider.model,
       voice: provider.voice,
-      ready: keys.configured && (provider.id !== 'breeze' || Boolean(normalized.breezeVoice?.trim())),
+      ready: keys.configured && (!provider.requiresVoice || Boolean(normalized.breezeVoice?.trim())),
       hasKey: keys.configured,
       keyFrom: keys.from,
       candidates: keys.candidates,
+      endpoint: provider.endpoint,
     },
+    local,
     sapi: { ok: voices.ok === true, voiceCount: voices.voices?.length ?? 0, error: voices.error },
     player,
   };

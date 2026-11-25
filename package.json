@@ -1,8 +1,8 @@
 {
   "name": "cortico-world-breezeblue-tts",
-  "version": "0.1.2",
+  "version": "0.2.4",
   "type": "module",
-  "description": "Coopanion BreezeBlue / MiniMax 气泡朗读，支持演绎控制和 Windows 系统语音回退，使用云端api连接。详细配置请点击GitHub仓库链接。",
+  "description": "Coopanion BreezeBlue / MiniMax / 本机 breeze-tts-2 气泡朗读：折叠式设置面板、可在扩展里直接起停本机服务，支持演绎控制和 Windows 系统语音回退。",
   "license": "MIT",
   "keywords": [
     "cortico-world",
@@ -29,8 +29,9 @@
   ],
   "scripts": {
     "selftest": "node scripts/selftest.mjs",
-    "test": "node scripts/test-watcher.mjs && node scripts/test-secrets.mjs && node scripts/test-breeze.mjs",
+    "test": "node scripts/test-watcher.mjs && node scripts/test-secrets.mjs && node scripts/test-breeze.mjs && node scripts/test-local.mjs && node scripts/test-voice-library.mjs && node scripts/test-audio-host.mjs && node scripts/test-service.mjs && node scripts/test-panel.mjs",
     "breeze": "node scripts/breeze-probe.mjs",
+    "local": "node scripts/local-probe.mjs",
     "probe": "node scripts/minimax-probe.mjs --net",
     "voices": "node scripts/list-voices.mjs"
   },
@@ -38,7 +39,9 @@
     "kind": "world",
     "api": 6,
     "displayName": "BreezeBlue 气泡朗读",
-    "icon": "icon.svg"
+    "icon": "icon.svg",
+    "webUiClient": "src/webui/client.js",
+    "webUiStyle": "src/webui/style.css"
   },
   "author": "星云",
   "repository": {

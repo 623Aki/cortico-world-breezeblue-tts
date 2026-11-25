@@ -1,0 +1,104 @@
+/*
+ * 「朗读设置」面板只补框架没给的排布：颜色、字号、间距全部用主题里的类，
+ * 这里不写死任何色值，浅色/深色主题都跟着走。
+ */
+
+/* 顶部一行：左边状态读数，右边按钮 */
+.bbt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.bbt-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+/* 输入框旁边的「选择…」「刷新音色」不该把整行撑开 */
+.bbt-inline {
+  margin-left: 6px;
+  flex: none;
+}
+
+/* 启动命令里有长路径：宁可折行，也不要横向滚动 */
+.bbt-launch .configline {
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+/*
+ * 名称与说明要分得开：名称加一点字重，说明小一号、更淡、行宽收住。
+ * 框架给的 .setnote 是 12.5px 的 --muted-foreground，和 14px 的名称挨在一起时
+ * 看着像两行标题——所以这里再压一档，并把对比度降下去。
+ */
+.foldbody .setrow > .setlabel {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.foldbody .setrow .setnote {
+  margin-top: 5px;
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--ink-dim);
+  max-width: 44em;
+}
+
+/* 名称里的说明（开关行）不跟着名称加粗 */
+.setrow > .setlabel > .setnote {
+  font-weight: 400;
+  margin-top: 3px;
+}
+
+/*
+ * 开关行：勾选框紧贴名称左侧，名称与说明占右边。
+ *
+ * 框架的 .setrow 是 grid：名称固定 120px 一列、控件在右栏，中间隔着一大段空白，
+ * 开关看着像另一个东西的控件；容器窄于 640px 时还会塌成一列，开关掉到名称下面。
+ * 这里换成 flex 并把控件提到视觉第一位——DOM 顺序不变（名称仍在前面，读屏照旧），
+ * 只调 order，所以点名称、点开关的关系跟标签一致。
+ */
+.setrow.bbt-switchrow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 0;
+}
+
+.setrow.bbt-switchrow > .setcontrol {
+  order: -1;
+  flex: none;
+  width: auto;
+  /* 勾选框没有文字基线：往下压一点，让它和名称第一行对齐 */
+  padding-top: 3px;
+}
+
+.setrow.bbt-switchrow > .setlabel {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* 开关自己的容器不要再带外边距，否则那一行会比别的行高 */
+.setrow.bbt-switchrow .switchbox {
+  margin: 0;
+}
+
+/* 卡内分节（本地服务那张：连接一段、进程一段） */
+.bbt-secthead {
+  margin: 20px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font: 600 11.5px/1.4 var(--sans);
+  letter-spacing: .06em;
+  color: var(--ink-dim);
+}
+
+/* 分节之后的第一行不必再叠一段留白 */
+.bbt-secthead + .setrow {
+  padding-top: 8px;
+}

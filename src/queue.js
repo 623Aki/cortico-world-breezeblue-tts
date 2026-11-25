@@ -56,7 +56,7 @@ export function createSpeaker({ speak, onEvent = () => {} } = {}) {
 
         if (res?.ok) {
           stats.spoken += 1;
-          if (['minimax', 'breeze'].includes(res.engine)) stats.cloudSpoken += 1;
+          if (['minimax', 'breeze', 'local'].includes(res.engine)) stats.cloudSpoken += 1;
           if (res.engine === 'sapi') stats.sapiSpoken += 1;
           if (res.fellBack) stats.fellBack += 1;
           if (res.voice) stats.lastVoice = res.voice;
