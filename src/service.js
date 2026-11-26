@@ -42,6 +42,13 @@ const HEALTH_TIMEOUT_MS = 800;
  */
 const STOP_GRACE_MS = 2_500;
 
+/**
+ * 关掉 host-visible 显存分配：开了 ReBAR 的机器上 ggml Vulkan 会把约 1 GB 工作缓冲
+ * 放进共享内存，逐帧跨 PCIe 读写使合成慢一个数量级（RTF 0.19x → 2.1x）。
+ * 只传给服务进程，不改 Coopanion 自身或调用方的环境。
+ */
+const SERVICE_ENV = { ...process.env, GGML_VK_DISABLE_HOST_VISIBLE_VIDMEM: '1' };
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /**
@@ -454,10 +461,10 @@ export function createLocalService({ getConfig = () => ({}), dataDir = '', log =
       const isScript = /\.(bat|cmd)$/i.test(launch.exe);
       proc = isScript
         ? spawnFn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', [launch.exe, ...launch.args].map(quoteWin).join(' ')], {
-          cwd: launch.cwd, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], env: process.env,
+          cwd: launch.cwd, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], env: SERVICE_ENV,
         })
         : spawnFn(launch.exe, launch.args, {
-          cwd: launch.cwd, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], env: process.env,
+          cwd: launch.cwd, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], env: SERVICE_ENV,
         });
     } catch (err) {
       phase = 'error';
